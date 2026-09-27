@@ -35,6 +35,11 @@
             font-weight: bold;
             cursor: pointer;
         }
+        .mode-select {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
         button {
             background-color: #4CAF50;
             color: white;
@@ -47,6 +52,12 @@
             margin-top: 10px;
         }
         button:hover { background-color: #45a049; }
+        .btn-secondary {
+            background-color: #7f8c8d;
+        }
+        .btn-secondary:hover {
+            background-color: #6c7a89;
+        }
         .quiz-box {
             margin-top: 20px;
             padding: 20px;
@@ -61,10 +72,10 @@
             margin-bottom: 20px;
             min-height: 60px;
         }
-        input[type="text"] {
+        input[type="number"] {
             padding: 10px;
             font-size: 16px;
-            width: 60%;
+            width: 50%;
             border: 1px solid #ccc;
             border-radius: 4px;
             text-align: center;
@@ -76,6 +87,12 @@
         }
         .correct { color: #27ae60; }
         .wrong { color: #c0392b; }
+        .hidden-answer {
+            font-size: 24px;
+            color: #e67e22;
+            margin-bottom: 15px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -93,24 +110,39 @@
         <label><input type="checkbox" name="cat" value="국내외 독립 운동" checked> 국내외 독립 운동</label>
         <label><input type="checkbox" name="cat" value="세계사 및 국제 정세" checked> 세계사 및 국제 정세</label>
         
-        <button onclick="startQuiz()">퀴즈 시작 / 다음 문제</button>
+        <div class="mode-select">
+            <p><strong>📌 학습 모드 선택:</strong></p>
+            <label><input type="radio" name="gameMode" value="input" checked> 연도 직접 입력 모드</label>
+            <label><input type="radio" name="gameMode" value="card"> 카드 뒤집기(정답 보기) 모드</label>
+        </div>
+        
+        <button onclick="startQuiz()">퀴즈 시작하기</button>
     </div>
 
     <div class="quiz-box" id="quizContainer" style="display:none;">
         <div id="categoryBadge" style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px;"></div>
         <div class="event-text" id="eventDescription">여기에 사건이 나옵니다.</div>
         
-        <div id="inputArea">
+        <!-- 입력 모드용 영역 -->
+        <div id="inputModeArea">
             <input type="number" id="userYear" placeholder="연도 입력 (예: 1920)">
             <button onclick="checkAnswer()" style="width: auto; display: inline-block; padding: 10px 15px; margin-left: 5px;">정답 확인</button>
         </div>
         
+        <!-- 카드 뒤집기 모드용 영역 -->
+        <div id="cardModeArea" style="display:none;">
+            <div class="hidden-answer" id="hiddenYearDisplay">???</div>
+            <button class="btn-secondary" onclick="revealCard()" id="revealBtn">정답 보기</button>
+        </div>
+        
         <div class="result" id="resultMessage"></div>
+        
+        <!-- 다음 문제 버튼 -->
+        <button class="btn-secondary" onclick="startQuiz()" style="margin-top: 20px; background-color: #3498db;">➡️ 모르면 넘어가기 / 다음 문제</button>
     </div>
 </div>
 
 <script>
-    // 슬래시 분리 및 불필요한 괄호 설명 생략형 깔끔한 데이터셋
     const historyData = [
         // 1910년대
         { year: "1910", cat: "국내외 독립 운동", text: "국권 피탈" },
@@ -168,7 +200,7 @@
         { year: "1923", cat: "국내외 독립 운동", text: "암태도 소작 쟁의 발생" },
         { year: "1924", cat: "국내외 독립 운동", text: "경성제국대학 설립" },
         { year: "1925", cat: "국내외 독립 운동", text: "조선공산당 결성" },
-        { year: "1925", cat: "국내외 독립 운동", text: "박은식 임시 대통령 취임" },
+        { year: "1925", cat: "국내외 독립 운동", text: "박은식 임시 대통령 취يب" },
         { year: "1925", cat: "국내외 독립 운동", text: "미쓰야 협정 체결" },
         { year: "1925", cat: "국내외 독립 운동", text: "남자현 의거" },
         { year: "1925", cat: "세계사 및 국제 정세", text: "치안 유지법 제정" },
@@ -201,6 +233,7 @@
     function startQuiz() {
         const selectedEras = Array.from(document.querySelectorAll('input[name="era"]:checked')).map(el => el.value);
         const selectedCats = Array.from(document.querySelectorAll('input[name="cat"]:checked')).map(el => el.value);
+        const gameMode = document.querySelector('input[name="gameMode"]:checked').value;
 
         if (selectedEras.length === 0 || selectedCats.length === 0) {
             alert("시대와 영역을 최소 하나 이상 선택해주세요!");
@@ -223,8 +256,20 @@
         document.getElementById("quizContainer").style.display = "block";
         document.getElementById("categoryBadge").innerText = `[${currentQuiz.cat}]`;
         document.getElementById("eventDescription").innerText = currentQuiz.text;
-        document.getElementById("userYear").value = "";
         document.getElementById("resultMessage").innerText = "";
+
+        // 모드에 따라 화면 구성 변경
+        if (gameMode === "input") {
+            document.getElementById("inputModeArea").style.display = "block";
+            document.getElementById("cardModeArea").style.display = "none";
+            document.getElementById("userYear").value = "";
+        } else {
+            document.getElementById("inputModeArea").style.display = "none";
+            document.getElementById("cardModeArea").style.display = "block";
+            document.getElementById("hiddenYearDisplay").style.display = "none";
+            document.getElementById("hiddenYearDisplay").innerText = `${currentQuiz.year}년`;
+            document.getElementById("revealBtn").style.display = "inline-block";
+        }
     }
 
     function checkAnswer() {
@@ -241,6 +286,11 @@
         } else {
             msg.innerHTML = `<span class="wrong">틀렸습니다! 🥲 정답은 ${currentQuiz.year}년 입니다.</span>`;
         }
+    }
+
+    function revealCard() {
+        document.getElementById("hiddenYearDisplay").style.display = "block";
+        document.getElementById("revealBtn").style.display = "none";
     }
 </script>
 
