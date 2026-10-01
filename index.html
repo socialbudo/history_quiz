@@ -21,7 +21,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 600px;
+            max-width: 650px;
         }
         h2 { text-align: center; color: #333; margin-bottom: 20px; }
         .filter-section {
@@ -34,6 +34,8 @@
             margin-right: 15px;
             font-weight: bold;
             cursor: pointer;
+            display: inline-block;
+            margin-top: 5px;
         }
         .mode-select {
             margin-top: 10px;
@@ -52,18 +54,10 @@
             margin-top: 10px;
         }
         button:hover { background-color: #45a049; }
-        .btn-secondary {
-            background-color: #7f8c8d;
-        }
-        .btn-secondary:hover {
-            background-color: #6c7a89;
-        }
-        .btn-danger {
-            background-color: #e74c3c;
-        }
-        .btn-danger:hover {
-            background-color: #c0392b;
-        }
+        .btn-secondary { background-color: #7f8c8d; }
+        .btn-secondary:hover { background-color: #6c7a89; }
+        .btn-danger { background-color: #e74c3c; }
+        .btn-danger:hover { background-color: #c0392b; }
         .quiz-box {
             margin-top: 20px;
             padding: 20px;
@@ -79,16 +73,17 @@
             margin-bottom: 10px;
         }
         .event-text {
-            font-size: 20px;
+            font-size: 19px;
             font-weight: bold;
             color: #2c3e50;
             margin-bottom: 20px;
             min-height: 60px;
+            line-height: 1.4;
         }
-        input[type="number"] {
+        input[type="text"] {
             padding: 10px;
             font-size: 16px;
-            width: 50%;
+            width: 60%;
             border: 1px solid #ccc;
             border-radius: 4px;
             text-align: center;
@@ -101,7 +96,7 @@
         .correct { color: #27ae60; }
         .wrong { color: #c0392b; }
         .hidden-answer {
-            font-size: 24px;
+            font-size: 22px;
             color: #e67e22;
             margin-bottom: 15px;
             display: none;
@@ -116,18 +111,24 @@
             margin-top: 0;
             width: 50%;
         }
+        .hint-text {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🇰🇷 한국사 연도 마스터 퀴즈</h2>
+    <h2>🇰🇷 한국사 연도·날짜 마스터 퀴즈</h2>
     
     <div class="filter-section" id="filterSection">
         <p><strong>📌 시대 선택:</strong></p>
         <label><input type="checkbox" name="era" value="191" checked> 1910년대</label>
         <label><input type="checkbox" name="era" value="192" checked> 1920년대</label>
         <label><input type="checkbox" name="era" value="193" checked> 1930년대</label>
+        <label><input type="checkbox" name="era" value="194" checked> 1940년대</label>
         
         <p style="margin-top: 10px;"><strong>📌 영역 선택:</strong></p>
         <label><input type="checkbox" name="cat" value="국내외 독립 운동" checked> 국내외 독립 운동</label>
@@ -135,7 +136,7 @@
         
         <div class="mode-select">
             <p><strong>📌 학습 모드 선택:</strong></p>
-            <label><input type="radio" name="gameMode" value="input" checked> 연도 직접 입력 모드</label>
+            <label><input type="radio" name="gameMode" value="input" checked> 정답 직접 입력 모드</label>
             <label><input type="radio" name="gameMode" value="card"> 카드 뒤집기(정답 보기) 모드</label>
         </div>
         
@@ -149,19 +150,20 @@
         
         <!-- 입력 모드용 영역 -->
         <div id="inputModeArea">
-            <input type="number" id="userYear" placeholder="연도 입력 (예: 1920)">
-            <button onclick="checkAnswer()" style="width: auto; display: inline-block; padding: 10px 15px; margin-left: 5px;">정답 확인</button>
+            <input type="text" id="userAnswer" placeholder="예: 1919 또는 1945.7 또는 1945.8.15">
+            <div class="hint-text">💡 연도만 있으면 연도만, 월이 있으면 연도.월, 일이 있으면 연도.월.일 형식으로 입력하세요.</div>
+            <button onclick="checkAnswer()" style="width: auto; display: inline-block; padding: 10px 15px; margin-top: 10px;">정답 확인</button>
         </div>
         
         <!-- 카드 뒤집기 모드용 영역 -->
         <div id="cardModeArea" style="display:none;">
-            <div class="hidden-answer" id="hiddenYearDisplay">???</div>
+            <div class="hidden-answer" id="hiddenDateDisplay">???</div>
             <button class="btn-secondary" onclick="revealCard()" id="revealBtn">정답 보기</button>
         </div>
         
         <div class="result" id="resultMessage"></div>
         
-        <!-- 이전 / 다음 문제 이동 버튼 (답 입력 없어도 이동 가능) -->
+        <!-- 이전 / 다음 문제 이동 버튼 -->
         <div class="nav-buttons">
             <button class="btn-secondary" onclick="prevQuestion()">⬅️ 이전 문제</button>
             <button onclick="nextQuestion()">다음 문제 ➡️</button>
@@ -173,89 +175,145 @@
 </div>
 
 <script>
-    // 원본 이미지 연표와 정확히 일치하도록 수정한 전체 데이터셋
+    /* 
+      요청사항 반영 데이터셋 구축 원칙:
+      - 날짜/월이 명시된 항목은 '1945.7', '1945.8.15' 형식의 정답 포맷 적용
+      - 슬래시(/)나 복잡한 괄호 구조는 학습하기 좋게 깔끔하게 정제 및 분할
+    */
     const historyData = [
         // 1910년대
-        { year: "1910", cat: "국내외 독립 운동", text: "국권 피탈" },
-        { year: "1910", cat: "국내외 독립 운동", text: "조선 총독부 설치" },
-        { year: "1910", cat: "국내외 독립 운동", text: "임시 토지 조사국 설치" },
-        { year: "1910", cat: "국내외 독립 운동", text: "범죄 즉결례 제정" },
-        { year: "1910", cat: "국내외 독립 운동", text: "회사령 제정" },
-        { year: "1911", cat: "국내외 독립 운동", text: "어업령 제정" },
-        { year: "1911", cat: "국내외 독립 운동", text: "북간도 중광단 조직" },
-        { year: "1911", cat: "국내외 독립 운동", text: "105인 사건" },
-        { year: "1911", cat: "국내외 독립 운동", text: "서간도 신흥 강습소(신흥무관학교) 설립" },
-        { year: "1912", cat: "국내외 독립 운동", text: "조선 태형령 및 경찰범 처벌 규칙 제정" },
-        { year: "1912", cat: "국내외 독립 운동", text: "토지 조사령 공포" },
-        { year: "1912", cat: "국내외 독립 운동", text: "임병찬, 독립 의군부 조직" },
-        { year: "1913", cat: "국내외 독립 운동", text: "송죽회 결성" },
-        { year: "1914", cat: "국내외 독립 운동", text: "연해주, 대한 광복군 정부 조직" },
-        { year: "1914", cat: "세계사 및 국제 정세", text: "제1차 세계대전 발발" },
-        { year: "1915", cat: "국내외 독립 운동", text: "조선 광업령 제정" },
-        { year: "1915", cat: "국내외 독립 운동", text: "박상진, 대구에서 대한 광복회 조직" },
-        { year: "1915", cat: "세계사 및 국제 정세", text: "일본, 중국에게 21개조 요구 강요" },
-        { year: "1917", cat: "세계사 및 국제 정세", text: "러시아 혁명 발생" },
-        { year: "1918", cat: "세계사 및 국제 정세", text: "제1차 세계대전 종전" },
-        { year: "1919", cat: "국내외 독립 운동", text: "고종 사망" },
-        { year: "1919", cat: "국내외 독립 운동", text: "2·8 독립 선언" },
-        { year: "1919", cat: "국내외 독립 운동", text: "연해주 대한 국민 의회 설립" },
-        { year: "1919", cat: "국내외 독립 운동", text: "3·1 운동 발생" },
-        { year: "1919", cat: "국내외 독립 운동", text: "화성 제암리 학살 사건" },
-        { year: "1919", cat: "국내외 독립 운동", text: "대한민국 임시정부(상하이) 설립" },
-        { year: "1919", cat: "국내외 독립 운동", text: "한성 정부(경성) 설립" },
-        { year: "1919", cat: "국내외 독립 운동", text: "대한민국 임시정부 통합" },
-        { year: "1919", cat: "국내외 독립 운동", text: "강우규 의거" },
-        { year: "1919", cat: "국내외 독립 운동", text: "김원봉 의열단 결성" },
-        { year: "1919", cat: "세계사 및 국제 정세", text: "파리 강화 회의 개최" },
-        { year: "1919", cat: "세계사 및 국제 정세", text: "중국 5·4 운동" },
+        { date: "1910", cat: "국내외 독립 운동", text: "국권 피탈" },
+        { date: "1910", cat: "국내외 독립 운동", text: "조선 총독부 설치" },
+        { date: "1910", cat: "국내외 독립 운동", text: "임시 토지 조사국 설치" },
+        { date: "1910", cat: "국내외 독립 운동", text: "범죄 즉결례 제정" },
+        { date: "1910", cat: "국내외 독립 운동", text: "회사령 제정" },
+        { date: "1911", cat: "국내외 독립 운동", text: "어업령 제정" },
+        { date: "1911", cat: "국내외 독립 운동", text: "북간도 중광단 조직" },
+        { date: "1911", cat: "국내외 독립 운동", text: "105인 사건 (신민회 해산 및 독립운동 탄압)" },
+        { date: "1911", cat: "국내외 독립 운동", text: "서간도 신흥 강습소 설립" },
+        { date: "1912", cat: "국내외 독립 운동", text: "조선 태형령 제정" },
+        { date: "1912", cat: "국내외 독립 운동", text: "경찰범 처벌 규칙 제정" },
+        { date: "1912", cat: "국내외 독립 운동", text: "토지 조사령 공포" },
+        { date: "1912", cat: "국내외 독립 운동", text: "임병찬, 독립의군부 조직 (복벽주의, 고종 밀지)" },
+        { date: "1913", cat: "국내외 독립 운동", text: "평양 숭의여학교 사제, 송죽회 결성" },
+        { date: "1914", cat: "세계사 및 국제 정세", text: "제1차 세계대전 발발" },
+        { date: "1914", cat: "국내외 독립 운동", text: "대한광복군정부 조직 (이상설·이동휘 정·부통령)" },
+        { date: "1915", cat: "세계사 및 국제 정세", text: "일본, 중국에 21개조 요구 강요" },
+        { date: "1915", cat: "국내외 독립 운동", text: "조선 광업령 제정" },
+        { date: "1915", cat: "국내외 독립 운동", text: "박상진, 대한광복회 조직" },
+        { date: "1917", cat: "세계사 및 국제 정세", text: "러시아 혁명 발생 (레닌, 소비에트 러시아 설립)" },
+        { date: "1918", cat: "세계사 및 국제 정세", text: "제1차 세계대전 종전 (독일 항복)" },
+        { date: "1918", cat: "세계사 및 국제 정세", text: "일본 쌀소동 발생 (산미증식계획 배경)" },
+        { date: "1919.1", cat: "국내외 독립 운동", text: "고종 사망 (독살설 확산)" },
+        { date: "1919.2.8", cat: "국내외 독립 운동", text: "2·8 독립 선언 (도쿄 유학생)" },
+        { date: "1919.3", cat: "국내외 독립 운동", text: "연해주 대한국민의회 설립" },
+        { date: "1919.3", cat: "국내외 독립 운동", text: "3·1 운동 발생" },
+        { date: "1919", cat: "국내외 독립 운동", text: "화성 제암리 학살 사건" },
+        { date: "1919.4", cat: "국내외 독립 운동", text: "한성 정부(경성) 및 대한민국 임시정부(상하이) 설립" },
+        { date: "1919", cat: "국내외 독립 운동", text: "필라델피아 시가 행진 (안창호, 서재필, 이승만)" },
+        { date: "1919.5", cat: "세계사 및 국제 정세", text: "중국 5·4 운동" },
+        { date: "1919.9", cat: "국내외 독립 운동", text: "대한민국 임시정부 통합 및 임시 헌법 공포" },
+        { date: "1919", cat: "국내외 독립 운동", text: "강우규 의거 (사이토 총독 폭탄 투척)" },
+        { date: "1919.11", cat: "국내외 독립 운동", text: "김원봉, 의열단 결성" },
+        { date: "1919", cat: "세계사 및 국제 정세", text: "파리 강화 회의 - 베르사유 조약 체결" },
 
         // 1920년대
-        { year: "1920", cat: "국내외 독립 운동", text: "《동아일보》, 《조선일보》 창간" },
-        { year: "1920", cat: "국내외 독립 운동", text: "산미증식계획 실시, 회사령 폐지" },
-        { year: "1920", cat: "국내외 독립 운동", text: "조선 물산 장려회 조직" },
-        { year: "1920", cat: "국내외 독립 운동", text: "봉오동 전투 승리" },
-        { year: "1920", cat: "국내외 독립 운동", text: "청산리 전투 승리" },
-        { year: "1920", cat: "국내외 독립 운동", text: "간도 참변 발생" },
-        { year: "1920", cat: "국내외 독립 운동", text: "대한 독립 군단 창설" },
-        { year: "1921", cat: "국내외 독립 운동", text: "자유시 참변 발생" },
-        { year: "1921", cat: "국내외 독립 운동", text: "김익상 의거" },
-        { year: "1921", cat: "국내외 독립 운동", text: "부산 부두 노동자 총파업" },
-        { year: "1921", cat: "세계사 및 국제 정세", text: "워싱턴 회의 개최" },
-        { year: "1922", cat: "국내외 독립 운동", text: "조선 민립 대학 기성회 조직" },
-        { year: "1922", cat: "세계사 및 국제 정세", text: "소비에트 사회주의 공화국 연방(소련) 수립" },
-        { year: "1923", cat: "국내외 독립 운동", text: "일본 상품 관세 철폐" },
-        { year: "1923", cat: "국내외 독립 운동", text: "관동 대지진 발생" },
-        { year: "1923", cat: "국내외 독립 운동", text: "국민 대표 회의 실시" },
-        { year: "1923", cat: "국내외 독립 운동", text: "김상옥 의거" },
-        { year: "1923", cat: "국내외 독립 운동", text: "암태도 소작 쟁의 발생" },
-        { year: "1924", cat: "국내외 독립 운동", text: "경성제국대학 설립" },
-        { year: "1925", cat: "국내외 독립 운동", text: "조선공산당 결성" },
-        { year: "1925", cat: "국내외 독립 운동", text: "박은식 임시 대통령 취임" },
-        { year: "1925", cat: "국내외 독립 운동", text: "미쓰야 협정 체결" },
-        { year: "1925", cat: "국내외 독립 운동", text: "남자현 의거" },
-        { year: "1925", cat: "세계사 및 국제 정세", text: "치안 유지법 제정" },
-        { year: "1926", cat: "국내외 독립 운동", text: "순종 사망" },
-        { year: "1926", cat: "국내외 독립 운동", text: "6·10 만세 운동 발생" },
-        { year: "1926", cat: "국내외 독립 운동", text: "조선 민흥회 결성" },
-        { year: "1926", cat: "국내외 독립 운동", text: "정우회 선언 발표" },
-        { year: "1926", cat: "국내외 독립 운동", text: "나석주 의거" },
-        { year: "1927", cat: "국내외 독립 운동", text: "신간회 결성" },
-        { year: "1927", cat: "국내외 독립 운동", text: "조선 농민 총동맹 결성" },
-        { year: "1929", cat: "국내외 독립 운동", text: "광주 학생 항일 운동 발생" },
-        { year: "1929", cat: "국내외 독립 운동", text: "원산 총파업 발생" },
-        { year: "1929", cat: "세계사 및 국제 정세", text: "대공황 발생" },
+        { date: "1920", cat: "국내외 독립 운동", text: "《동아일보》, 《조선일보》 창간" },
+        { date: "1920", cat: "국내외 독립 운동", text: "산미증식계획 실시 및 회사령 폐지" },
+        { date: "1920", cat: "국내외 독립 운동", text: "조선물산장려회 조직 (평양, 조만식)" },
+        { date: "1920.6", cat: "국내외 독립 운동", text: "봉오동 전투 승리" },
+        { date: "1920.10", cat: "국내외 독립 운동", text: "청산리 전투 승리 및 간도 참변 발생" },
+        { date: "1920.12", cat: "국내외 독립 운동", text: "대한독립군단 창설" },
+        { date: "1921", cat: "세계사 및 국제 정세", text: "워싱턴 회의 개최" },
+        { date: "1921.5.1", cat: "국내외 독립 운동", text: "천도교 소년회 창립" },
+        { date: "1921.6", cat: "국내외 독립 운동", text: "자유시 참변 발생" },
+        { date: "1921", cat: "국내외 독립 운동", text: "김익상 의거 (조선총독부 폭탄 투척)" },
+        { date: "1921", cat: "국내외 독립 운동", text: "부산 부두 노동자 파업 및 조선어연구회 조직" },
+        { date: "1922", cat: "세계사 및 국제 정세", text: "소비에트 사회주의 공화국 연방(소련) 수립" },
+        { date: "1922", cat: "세계사 및 국제 정세", text: "극동 인민 대표 회의 개최 (모스크바)" },
+        { date: "1922", cat: "국내외 독립 운동", text: "조선민립대학기성회 조직 (서울, 이상재)" },
+        { date: "1922.5.1", cat: "국내외 독립 운동", text: "어린이날 제정" },
+        { date: "1923", cat: "국내외 독립 운동", text: "일본 상품 관세 철폐" },
+        { date: "1923", cat: "세계사 및 국제 정세", text: "관동 대지진 발생 (한국인 학살)" },
+        { date: "1923", cat: "국내외 독립 운동", text: "국민대표회의 실시" },
+        { date: "1923", cat: "국내외 독립 운동", text: "김상옥 의거 (종로경찰서 폭탄 투척)" },
+        { date: "1923", cat: "국내외 독립 운동", text: "암태도 소작 쟁의 시작 (~1924.8)" },
+        { date: "1923", cat: "국내외 독립 운동", text: "조선형평사 창립 (진주, 형평운동 전개)" },
+        { date: "1924", cat: "국내외 독립 운동", text: "경성제국대학 설립" },
+        { date: "1924", cat: "세계사 및 국제 정세", text: "제1차 국공 합작" },
+        { date: "1924", cat: "국내외 독립 운동", text: "이광수, 「민족적 경륜」 발표" },
+        { date: "1925", cat: "세계사 및 국제 정세", text: "치안 유지법 제정" },
+        { date: "1925", cat: "국내외 독립 운동", text: "임시정부 이승만 대통령 탄핵 및 박은식 대통령 취임" },
+        { date: "1925.4", cat: "국내외 독립 운동", text: "조선공산당 결성" },
+        { date: "1925.6", cat: "국내외 독립 운동", text: "미쓰야 협정 체결" },
+        { date: "1925", cat: "국내외 독립 운동", text: "남자현 의거" },
+        { date: "1926", cat: "국내외 독립 운동", text: "순종 서거 및 6·10 만세 운동 발생" },
+        { date: "1926.7", cat: "국내외 독립 운동", text: "조선민흥회 결성" },
+        { date: "1926.11", cat: "국내외 독립 운동", text: "정우회 선언 발표" },
+        { date: "1926.12", cat: "국내외 독립 운동", text: "나석주 의거 (식산은행·동척 습격)" },
+        { date: "1927.2", cat: "국내외 독립 운동", text: "신간회 결성" },
+        { date: "1927.5", cat: "국내외 독립 운동", text: "근우회 결성" },
+        { date: "1927", cat: "국내외 독립 운동", text: "조선농민총동맹 결성 및 경성방송국 라디오 개시" },
+        { date: "1929.1", cat: "국내외 독립 운동", text: "원산 총파업 발생 (~4월)" },
+        { date: "1929.11.3", cat: "국내외 독립 운동", text: "광주 학생 항일 운동 발생" },
+        { date: "1929", cat: "국내외 독립 운동", text: "조선일보, 문자보급운동 개시 (~1935)" },
+        { date: "1929", cat: "세계사 및 국제 정세", text: "세계 대공황 발생" },
 
-        // 1930년대 (이미지 기준 한인애국단은 1931년!)
-        { year: "1931", cat: "국내외 독립 운동", text: "한인 애국단 결성" }, //[span_1](start_span)[span_1](end_span) 수정 완료
-        { year: "1931", cat: "국내외 독립 운동", text: "신간회 해소" },
-        { year: "1931", cat: "국내외 독립 운동", text: "평원 고무 공장 여직공 파업(을밀대 고공농성)" },
-        { year: "1931", cat: "세계사 및 국제 정세", text: "만보산 사건 발생" },
-        { year: "1931", cat: "세계사 및 국제 정세", text: "만주사변 발생" },
-        { year: "1932", cat: "국내외 독립 운동", text: "이봉창 의거" },
-        { year: "1932", cat: "국내외 독립 운동", text: "윤봉길 의거" },
-        { year: "1932", cat: "국내외 독립 운동", text: "조선 혁명 간부학교 설립" },
-        { year: "1937", cat: "세계사 및 국제 정세", text: "연해주 한인 강제 이주" },
-        { year: "1937", cat: "세계사 및 국제 정세", text: "중일 전쟁 발발" }
+        // 1930년대
+        { date: "1930", cat: "국내외 독립 운동", text: "광주여고등보통학교 소녀회 백지 동맹 사건" },
+        { date: "1931.5", cat: "국내외 독립 운동", text: "신간회 해소" },
+        { date: "1931", cat: "국내외 독립 운동", text: "평양 평원고무농장 파업 (을밀대 고공농성)" },
+        { date: "1931", cat: "국내외 독립 운동", text: "조선어학회 조직" },
+        { date: "1931", cat: "국내외 독립 운동", text: "동아일보, 브나로드 운동 개시 (~1934)" },
+        { date: "1931.7", cat: "세계사 및 국제 정세", text: "만보산 사건 발생 (한중 민족 감정 악화)" },
+        { date: "1931.9", cat: "세계사 및 국제 정세", text: "만주사변 발생" },
+        { date: "1931.10", cat: "국내외 독립 운동", text: "김구, 한인애국단 결성" },
+        { date: "1932", cat: "국내외 독립 운동", text: "농촌 진흥 운동 전개" },
+        { date: "1932.1", cat: "국내외 독립 운동", text: "이봉창 의거" },
+        { date: "1932.4", cat: "국내외 독립 운동", text: "윤봉길 의거 (중국 국민당 지원 계기)" },
+        { date: "1932.10", cat: "국내외 독립 운동", text: "조선혁명간부학교 설립" },
+        { date: "1932", cat: "국내외 독립 운동", text: "남만주 조선혁명군(양세봉) - 영릉가 전투 승리" },
+        { date: "1932", cat: "국내외 독립 운동", text: "북만주 한국독립군(지청천) - 쌍성보 전투 승리" },
+        { date: "1933", cat: "국내외 독립 운동", text: "남만주 조선혁명군(양세봉) - 홍경성 전투 승리" },
+        { date: "1933", cat: "국내외 독립 운동", text: "북만주 한국독립군(지청천) - 대전자령 전투 승리" },
+        { date: "1935.7", cat: "국내외 독립 운동", text: "김원봉, 조선민족혁명당 결성" },
+        { date: "1936", cat: "국내외 독립 운동", text: "동북항일연군 한국인 유격대, 조국광복회 조직" },
+        { date: "1936", cat: "국내외 독립 운동", text: "베를린 올림픽 마라톤 (손기정 일장기 가림)" },
+        { date: "1937", cat: "세계사 및 국제 정세", text: "일·독·이 방공 협정 체결" },
+        { date: "1937", cat: "세계사 및 국제 정세", text: "소련, 연해주 한인 강제 이주" },
+        { date: "1937", cat: "세계사 및 국제 정세", text: "중일 전쟁 발발 (난징 대학살)" },
+        { date: "1937", cat: "국내외 독립 운동", text: "황국 신민 서사 제정" },
+        { date: "1937", cat: "국내외 독립 운동", text: "조국광복회, 보천보 전투 승리" },
+        { date: "1937", cat: "국내외 독립 운동", text: "조소앙(한국독립당 재건), 김구(한국국민당 창당)" },
+
+        // 1940년대
+        { date: "1938", cat: "국내외 독립 운동", text: "조선 의용대 창설 (한커우)" },
+        { date: "1938", cat: "국내외 독립 운동", text: "국가 총동원법 제정 및 지원병제 실시" },
+        { date: "1939", cat: "세계사 및 국제 정세", text: "제2차 세계대전 발발 (폴란드 침공)" },
+        { date: "1939", cat: "국내외 독립 운동", text: "국민징용령 실시" },
+        { date: "1940", cat: "국내외 독립 운동", text: "일본식 성명 강요 시작" },
+        { date: "1940", cat: "국내외 독립 운동", text: "한국 독립당 재창당 및 임시정부 충칭 정착" },
+        { date: "1940", cat: "국내외 독립 운동", text: "한국 광복군 조직 (지청천)" },
+        { date: "1941", cat: "국내외 독립 운동", text: "임시정부 《대한민국 건국 강령》 발표" },
+        { date: "1941.4", cat: "국내외 독립 운동", text: "조선 의용대 분산 이동" },
+        { date: "1941.7", cat: "국내외 독립 운동", text: "조선 의용대 화북 지대 결성" },
+        { date: "1941.12", cat: "세계사 및 국제 정세", text: "아시아·태평양 전쟁 발발 (진주만 기습)" },
+        { date: "1941.12", cat: "국내외 독립 운동", text: "임시정부, 《대일 선전 성명서》 발표" },
+        { date: "1941", cat: "국내외 독립 운동", text: "조선 의용대 화북 지대, 호가장 전투 승전" },
+        { date: "1942", cat: "국내외 독립 운동", text: "조선어 학회 사건 발생" },
+        { date: "1942", cat: "국내외 독립 운동", text: "화북 조선 독립 동맹 결성" },
+        { date: "1942.5", cat: "국내외 독립 운동", text: "조선 의용대, 한국 광복군에 편입" },
+        { date: "1942.6", cat: "세계사 및 국제 정세", text: "미드웨이 해전 발생" },
+        { date: "1943", cat: "국내외 독립 운동", text: "학도 지원병제 실시" },
+        { date: "1943.11", cat: "세계사 및 국제 정세", text: "카이로 회담 개최 (미·영·중)" },
+        { date: "1944", cat: "국내외 독립 운동", text: "징병제 및 여자 정신 근로령 실시" },
+        { date: "1944", cat: "국내외 독립 운동", text: "여운형, 조선 건국 동맹 결성" },
+        { date: "1945.2", cat: "세계사 및 국제 정세", text: "얄타 회담 개최 (미·영·소)" },
+        { date: "1945.7", cat: "세계사 및 국제 정세", text: "포츠담 회담 개최 (미·영·소)" },
+        { date: "1945.8.6", cat: "세계사 및 국제 정세", text: "미국, 히로시마 원자폭탄 투하" },
+        { date: "1945.8.8", cat: "세계사 및 국제 정세", text: "소련, 대일 선전포고" },
+        { date: "1945.8.9", cat: "세계사 및 국제 정세", text: "미국, 나가사키 원자폭탄 투하" },
+        { date: "1945.8.15", cat: "국내외 독립 운동", text: "일본 무조건 항복 선언 (광복)" }
     ];
 
     let currentSessionList = [];
@@ -273,7 +331,8 @@
         }
 
         const filtered = historyData.filter(item => {
-            const eraMatch = selectedEras.some(era => item.year.startsWith(era));
+            const prefix = item.date.substring(0, 3); // 예: '191', '192', '193', '194'
+            const eraMatch = selectedEras.includes(prefix);
             const catMatch = selectedCats.includes(item.cat);
             return eraMatch && catMatch;
         });
@@ -311,14 +370,22 @@
         if (gameMode === "input") {
             document.getElementById("inputModeArea").style.display = "block";
             document.getElementById("cardModeArea").style.display = "none";
-            document.getElementById("userYear").value = "";
+            document.getElementById("userAnswer").value = "";
         } else {
             document.getElementById("inputModeArea").style.display = "none";
             document.getElementById("cardModeArea").style.display = "block";
-            document.getElementById("hiddenYearDisplay").style.display = "none";
-            document.getElementById("hiddenYearDisplay").innerText = `${item.year}년`;
+            document.getElementById("hiddenDateDisplay").style.display = "none";
+            document.getElementById("hiddenDateDisplay").innerText = formatDisplayDate(item.date);
             document.getElementById("revealBtn").style.display = "inline-block";
         }
+    }
+
+    function formatDisplayDate(dateStr) {
+        const parts = dateStr.split('.');
+        if (parts.length === 1) return `${parts[0]}년`;
+        if (parts.length === 2) return `${parts[0]}년 ${parts[1]}월`;
+        if (parts.length === 3) return `${parts[0]}년 ${parts[1]}월 ${parts[2]}일`;
+        return dateStr;
     }
 
     function nextQuestion() {
@@ -340,26 +407,27 @@
     }
 
     function checkAnswer() {
-        const userVal = document.getElementById("userYear").value.trim();
+        // 공백 제거 후 비교 처리
+        const userVal = document.getElementById("userAnswer").value.trim().replace(/\s+/g, '');
         const msg = document.getElementById("resultMessage");
         const item = currentSessionList[currentIndex];
 
         if (!userVal) {
-            alert("연도를 입력해주세요!");
+            alert("연도나 날짜를 입력해주세요!");
             return;
         }
 
-        if (userVal === item.year) {
-            msg.innerHTML = `<span class="correct">정답입니다! 🎉 (연도: ${item.year}년)</span>`;
+        if (userVal === item.date) {
+            msg.innerHTML = `<span class="correct">정답입니다! 🎉 (정확한 시기: ${formatDisplayDate(item.date)})</span>`;
         } else {
-            msg.innerHTML = `<span class="wrong">틀렸습니다! 🥲 정답은 ${item.year}년 입니다.</span>`;
+            msg.innerHTML = `<span class="wrong">틀렸습니다! 🥲 정답은 ${formatDisplayDate(item.date)} 입니다.</span>`;
         }
     }
 
     function revealCard() {
         const item = currentSessionList[currentIndex];
-        document.getElementById("hiddenYearDisplay").innerText = `${item.year}년`;
-        document.getElementById("hiddenYearDisplay").style.display = "block";
+        document.getElementById("hiddenDateDisplay").innerText = formatDisplayDate(item.date);
+        document.getElementById("hiddenDateDisplay").style.display = "block";
         document.getElementById("revealBtn").style.display = "none";
     }
 
